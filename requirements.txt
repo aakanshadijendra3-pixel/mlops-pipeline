@@ -1,0 +1,16 @@
+# Core ML
+numpy
+pandas
+scikit-learn
+
+# Experiment tracking
+mlflow
+
+# Serving (choose one or both)
+flask
+fastapi
+uvicorn
+
+# Utility
+requests
+python-dotenv
