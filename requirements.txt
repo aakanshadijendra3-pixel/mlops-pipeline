@@ -14,3 +14,15 @@ uvicorn
 # Utility
 requests
 python-dotenv
+xgboost
+mlflow
+fastapi
+uvicorn
+scikit-learn
+xgboost
+fastapi
+uvicorn
+pandas
+mlflow
+pydantic
+
