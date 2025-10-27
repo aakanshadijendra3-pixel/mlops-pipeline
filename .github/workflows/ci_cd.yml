@@ -3,48 +3,58 @@ name: Local MLOps CI/CD
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:   # 👈 allows manual trigger from GitHub Actions tab
 
 jobs:
-  build-test:
+  build-train-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      #  Checkout repository
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set up Python
+      # Step 2: Set up Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      #  Install dependencies
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest mlflow scikit-learn pandas numpy joblib
 
-      #  Run tests (optional)
-      - name: Run tests
+      # Step 4: Run unit tests (optional)
+      - name: Run unit tests
         run: |
+          echo "🧪 Running tests..."
           pytest --maxfail=1 --disable-warnings -q || echo "No tests found or skipping."
 
-      #  Build Docker image
+      # Step 5: Train ML model
+      - name: Train ML model
+        run: |
+          echo "🚀 Starting model training..."
+          python src/train_model.py || echo "No training script found, skipping."
+
+      
+
+      # Step 7: Upload trained model as artifact
+      - name: Upload trained model
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-model
+          path: |
+            model.pkl
+            models/
+
+      # Step 8: Build Docker image
       - name: Build Docker image
         run: |
+          echo "🐳 Building Docker image..."
           docker build -t my-mlops-app:latest .
 
-      #  Log in to Docker Hub (optional)
-      # Remove this step if you are not pushing to Docker Hub
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      #  Push image to Docker Hub (optional)
-      - name: Push Docker image
-        run: |
-          docker tag my-mlops-app:latest ${{ secrets.DOCKERHUB_USERNAME }}/my-mlops-app:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-mlops-app:latest
+      #
