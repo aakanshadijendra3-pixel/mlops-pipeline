@@ -9,7 +9,7 @@ on:
       - main
 
 env:
-  # MLflow server credentials (set in GitHub → Settings → Secrets → Actions)
+  # MLflow server credentials (set these in GitHub → Settings → Secrets → Actions)
   MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
   MLFLOW_API_TOKEN: ${{ secrets.MLFLOW_API_TOKEN }}
 
@@ -30,7 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install nbconvert jupyter mlflow joblib scikit-learn pandas numpy matplotlib xgboost
+          pip install nbconvert jupyter mlflow joblib scikit-learn pandas numpy matplotlib xgboost imbalanced-learn
 
       - name: 🔄 Convert Notebook to Script
         run: |
@@ -38,7 +38,11 @@ jobs:
           jupyter nbconvert --to script "mlruns/ml_flow_model_management.ipynb"
           echo "Moving generated script to root..."
           mv mlruns/ml_flow_model_management.py train_script.py
-          echo "✅ Notebook converted and moved successfully."
+          echo "🧹 Cleaning notebook-specific lines..."
+          # Remove Jupyter magic commands and get_ipython calls
+          sed -i '/get_ipython/d' train_script.py || true
+          sed -i '/^!/d' train_script.py || true
+          echo "✅ Notebook converted, cleaned, and moved successfully."
 
       - name: 🚀 Train and Log Model with MLflow
         env:
