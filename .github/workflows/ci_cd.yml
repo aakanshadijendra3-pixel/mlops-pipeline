@@ -35,7 +35,7 @@ jobs:
 
       - name: 🔄 Convert Notebook to Script
         run: |
-          jupyter nbconvert --to script "mlruns/ml_flow_model_management.ipynb" --output train_script.py
+          jupyter nbconvert --to script "mlruns/ml_flow_model_management.ipynb" --output train_script.py--output-dir .
 
       - name: 🚀 Train and Log Model with MLflow
         env:
