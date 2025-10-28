@@ -25,4 +25,5 @@ uvicorn
 pandas
 mlflow
 pydantic
+imbalanced-learn
 
