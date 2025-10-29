@@ -108,7 +108,8 @@ jobs:
           sleep 10
           echo "🧪 Testing API..."
           curl -s http://127.0.0.1:8000/
-          pkill -f uvicorn
+          echo "✅ API responded successfully. Stopping server..."
+          pkill -f uvicorn || true
           echo "✅ Deployment simulation successful."
 
   monitor:
@@ -116,9 +117,24 @@ jobs:
     needs: deploy
 
     steps:
-      - name: 📊 Simulate Model Monitoring
+      - name: 📊 Install Dependencies for Monitoring
         run: |
-          echo "📈 Starting model monitoring..."
+          python -m pip install requests
+
+      - name: 📈 Perform API Health Check & Log Metrics
+        run: |
+          echo "📡 Checking deployed model health..."
+          STATUS_CODE=$(curl -o /dev/null -s -w "%{http_code}\n" http://127.0.0.1:8000/ || echo "000")
+          
+          if [ "$STATUS_CODE" -ne 200 ]; then
+            echo "❌ API health check failed (Status: $STATUS_CODE)"
+            echo "[$(date)] API_DOWN" >> monitoring.log
+            exit 1
+          else
+            echo "✅ API is healthy (Status: $STATUS_CODE)"
+          fi
+
+          echo "📈 Simulating drift and performance metrics..."
           TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
           ACCURACY=$(python -c "import random; print(round(random.uniform(0.85, 1.0), 2))")
           LATENCY=$(python -c "import random; print(round(random.uniform(50, 250), 2))")
@@ -129,7 +145,7 @@ jobs:
           echo "⚙️ Latency: ${LATENCY}ms"
           echo "🌪 Drift Score: $DRIFT"
 
-          echo "[$TIMESTAMP] Accuracy=$ACCURACY, Latency=$LATENCY, Drift=$DRIFT" >> monitoring.log
+          echo "[$TIMESTAMP] API_OK, Accuracy=$ACCURACY, Latency=$LATENCY, Drift=$DRIFT" >> monitoring.log
           echo "✅ Monitoring metrics logged successfully."
 
       - name: 📤 Upload Monitoring Logs
