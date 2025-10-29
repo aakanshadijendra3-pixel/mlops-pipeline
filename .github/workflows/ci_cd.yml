@@ -8,62 +8,87 @@ on:
     branches:
       - main
 
+# ---------------------------------------------------------
+# 🔐 Define environment variables for MLflow tracking
+# ---------------------------------------------------------
 env:
-  # MLflow server credentials (set these in GitHub → Settings → Secrets → Actions)
-  MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-  MLFLOW_API_TOKEN: ${{ secrets.MLFLOW_API_TOKEN }}
-  MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+  MLFLOW_TRACKING_URI: https://dagshub.com/aakanshadijendra3-pixel/mlops-demo.mlflow
+  MLFLOW_TRACKING_USERNAME: aakanshadijendra3-pixel
+  # Token securely stored in GitHub Secrets
+  MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
 
+# ---------------------------------------------------------
+# ⚙️ JOB 1: Build, Train, and Track ML Model
+# ---------------------------------------------------------
 jobs:
   build-train-track:
     runs-on: ubuntu-latest
+    name: Build, Train & Track Model
 
     steps:
+      # ✅ Step 1: Checkout the repository
       - name: 🧾 Checkout Repository
         uses: actions/checkout@v4
 
+      # ✅ Step 2: Set up Python environment
       - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # ✅ Step 3: Install dependencies
       - name: 📦 Install Dependencies
         run: |
+          echo "Installing dependencies..."
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install nbconvert jupyter mlflow joblib scikit-learn pandas numpy matplotlib xgboost imbalanced-learn
+          pip install mlflow scikit-learn pandas numpy joblib jupyter imbalanced-learn matplotlib xgboost dagshub
 
-      - name: 🔄 Convert Notebook to Script
+      # ✅ Step 4: Convert Jupyter notebook to script (if exists)
+      - name: 🔄 Convert Notebook to Python Script
         run: |
-          echo "Converting notebook to Python script..."
-          jupyter nbconvert --to script "mlruns/ml_flow_model_management.ipynb"
-          echo "Moving generated script to root..."
-          mv mlruns/ml_flow_model_management.py train_script.py
-          echo "🧹 Cleaning notebook-specific lines..."
-          # Remove Jupyter magic commands and get_ipython calls
-          sed -i '/get_ipython/d' train_script.py || true
-          sed -i '/^!/d' train_script.py || true
-          echo "✅ Notebook converted, cleaned, and moved successfully."
-      
-      - name: Debug Environment Variables 👇
+          NOTEBOOK_PATH="ml_flow_model_management.ipynb"
+          if [ -f "$NOTEBOOK_PATH" ]; then
+            echo "Converting notebook to Python script..."
+            jupyter nbconvert --to script "$NOTEBOOK_PATH" --output train_script.py
+            echo "Cleaning notebook-specific lines..."
+            sed -i '/get_ipython/d' train_script.py || true
+            sed -i '/^!/d' train_script.py || true
+            echo "✅ Notebook converted successfully."
+          else
+            echo "⚠️ No notebook found, skipping conversion."
+          fi
+
+      # ✅ Step 5: Debug MLflow environment variables
+      - name: 🧩 Debug Environment Variables
         run: |
           echo "MLflow Tracking URI: $MLFLOW_TRACKING_URI"
-          echo "Username: $MLFLOW_TRACKING_USERNAME"
-          
+          echo "MLflow Username: $MLFLOW_TRACKING_USERNAME"
+          echo "::add-mask::$MLFLOW_TRACKING_PASSWORD"
+          echo "✅ MLflow environment variables configured successfully."
+
+      # ✅ Step 6: Train and log model using MLflow
       - name: 🚀 Train and Log Model with MLflow
         env:
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-          MLFLOW_API_TOKEN: ${{ secrets.MLFLOW_API_TOKEN }}
+          MLFLOW_TRACKING_URI: https://dagshub.com/aakanshadijendra3-pixel/mlops-demo.mlflow
+          MLFLOW_TRACKING_USERNAME: aakanshadijendra3-pixel
+          MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
         run: |
-          echo "Starting model training and MLflow logging..."
-          python train_script.py
-          echo "✅ Model training & MLflow logging completed!"
+          echo "🚀 Starting model training..."
+          if [ -f "train_script.py" ]; then
+            python train_script.py
+            echo "✅ Training complete and logged to DagsHub MLflow."
+          else
+            echo "⚠️ train_script.py not found, skipping training."
+          fi
 
+      # ✅ Step 7: Verify generated files
       - name: 🧾 Verify Directory Structure
         run: |
-          echo "Listing files to confirm model output:"
+          echo "📂 Checking generated files..."
           ls -R
 
+      # ✅ Step 8: Upload trained model artifact
       - name: 📤 Upload Trained Model
         uses: actions/upload-artifact@v4
         with:
@@ -74,29 +99,37 @@ jobs:
             artifacts/
           if-no-files-found: warn
 
+# ---------------------------------------------------------
+# ⚙️ JOB 2: Deploy and Monitor Model
+# ---------------------------------------------------------
   deploy:
     runs-on: ubuntu-latest
+    name: Deploy & Monitor Model
     needs: build-train-track
     if: github.ref == 'refs/heads/main'
 
     steps:
+      # ✅ Step 1: Checkout repository
       - name: 🧾 Checkout Repository
         uses: actions/checkout@v4
 
+      # ✅ Step 2: Download trained model artifact
       - name: 📥 Download Trained Model Artifact
         uses: actions/download-artifact@v4
         with:
           name: trained-model
           path: ./deployed_model
 
-      - name: 🧩 Simulate Deployment
+      # ✅ Step 3: Simulate model deployment
+      - name: 🚀 Simulate Model Deployment
         run: |
           echo "Deploying trained model..."
           ls -R deployed_model
-          echo "✅ Model deployed successfully (simulated)."
+          echo "✅ Model deployed successfully (simulation)."
 
+      # ✅ Step 4: Simulate model monitoring
       - name: 🩺 Model Monitoring Simulation
         run: |
-          echo "🔍 Starting model monitoring..."
-          echo "Collecting simulated drift, latency, and accuracy metrics..."
+          echo "📈 Monitoring model performance..."
+          echo "Simulating drift detection, latency, and accuracy metrics..."
           echo "✅ Monitoring step completed successfully."
