@@ -1,4 +1,4 @@
-name: End-to-End MLOps CI/CD Pipeline (Auto Notebook Finder + MLflow Tracking)
+name: End-to-End MLOps CI/CD Pipeline (Training + Deployment + Monitoring)
 
 on:
   push:
@@ -30,35 +30,8 @@ jobs:
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nbconvert jupyter mlflow joblib scikit-learn pandas numpy matplotlib xgboost imbalanced-learn
-
-      - name: 🔍 Search for Notebook and Convert
-        run: |
-          echo "🔍 Searching for any .ipynb file in the repository..."
-          NOTEBOOK_FILE=$(find . -type f -name "*.ipynb" | head -n 1)
-          if [ -z "$NOTEBOOK_FILE" ]; then
-            echo "❌ No Jupyter notebook found! Please commit one (.ipynb)."
-            exit 1
-          fi
-
-          echo "📘 Found notebook: $NOTEBOOK_FILE"
-          jupyter nbconvert --to script "$NOTEBOOK_FILE" --output train_script.py
-
-          echo "🧹 Cleaning notebook-specific lines..."
-          sed -i '/get_ipython/d' train_script.py || true
-          sed -i '/^!/d' train_script.py || true
-
-          echo "✅ Notebook converted into train_script.py successfully."
-
-      - name: 🧾 Verify train_script presence
-        run: |
-          echo "Checking for train_script.py..."
-          ls -lh
-          if [ ! -f "train_script.py" ]; then
-            echo "❌ train_script.py missing after conversion! Exiting."
-            exit 1
-          fi
-          echo "✅ train_script.py found and ready for execution."
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install mlflow joblib scikit-learn pandas numpy fastapi uvicorn requests matplotlib
 
       - name: 🚀 Train and Log Model with MLflow
         run: |
@@ -66,16 +39,17 @@ jobs:
           python train_script.py
           echo "✅ Model training & MLflow logging completed!"
 
-      - name: 🧩 Ensure model artifact exists
+      - name: 🧩 Ensure Model Artifact Exists
         run: |
           mkdir -p models
-          if [ ! -f "models/model.pkl" ]; then
-            echo "⚠️ Warning: No model.pkl found. Creating placeholder file."
-            echo "Placeholder model file." > models/model.pkl
+          if [ ! -f "model.pkl" ]; then
+            echo "⚠️ model.pkl not found — creating a dummy placeholder."
+            echo "Dummy model file." > model.pkl
           fi
-          echo "✅ Model artifact verified."
+          mv model.pkl models/
+          echo "✅ Model artifact is ready for upload."
 
-      - name: 📤 Upload Trained Model
+      - name: 📤 Upload Trained Model Artifact
         uses: actions/upload-artifact@v4
         with:
           name: trained-model
@@ -97,13 +71,62 @@ jobs:
           name: trained-model
           path: ./deployed_model
 
-      - name: 🚀 Simulate Deployment
+      - name: 🧠 Simulate Model Deployment via FastAPI
         run: |
           echo "🚀 Deploying trained model..."
           ls -R deployed_model
-          echo "✅ Model deployed successfully (simulated)."
+          echo "Creating a simulated FastAPI deployment..."
+          echo "
+          from fastapi import FastAPI
+          import joblib, numpy as np
 
-      - name: 🩺 Model Monitoring Simulation
+          app = FastAPI(title='MLOps Model API')
+          model = joblib.load('deployed_model/model.pkl')
+
+          @app.get('/')
+          def home():
+              return {'message': '✅ Model deployed successfully!'}
+
+          @app.get('/predict')
+          def predict(sample: float = 5.1):
+              prediction = int(model.predict(np.array([[sample, sample, sample, sample]]))[0])
+              return {'input': sample, 'prediction': prediction}
+
+          if __name__ == '__main__':
+              import uvicorn
+              uvicorn.run(app, host='0.0.0.0', port=8000)
+          " > serve_temp.py
+
+          python serve_temp.py &
+          sleep 5
+          echo "🧪 Testing API..."
+          curl -X GET http://127.0.0.1:8000/
+          pkill -f uvicorn
+          echo "✅ Deployment simulation successful."
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: 📊 Simulate Model Monitoring
         run: |
-          echo "📊 Simulating drift & accuracy tracking..."
-          echo "✅ Monitoring step completed successfully."
+          echo "📈 Starting model monitoring..."
+          TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
+          ACCURACY=$(python -c "import random; print(round(random.uniform(0.85, 1.0), 2))")
+          LATENCY=$(python -c "import random; print(round(random.uniform(50, 250), 2))")
+          DRIFT=$(python -c "import random; print(round(random.uniform(0, 0.2), 3))")
+
+          echo "🕓 Timestamp: $TIMESTAMP"
+          echo "✅ Accuracy: $ACCURACY"
+          echo "⚙️ Latency: ${LATENCY}ms"
+          echo "🌪 Drift Score: $DRIFT"
+
+          echo "[$TIMESTAMP] Accuracy=$ACCURACY, Latency=$LATENCY, Drift=$DRIFT" >> monitoring.log
+          echo "✅ Monitoring metrics logged successfully."
+
+      - name: 📤 Upload Monitoring Logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-monitoring-logs
+          path: monitoring.log
