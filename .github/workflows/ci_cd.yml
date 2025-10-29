@@ -71,6 +71,12 @@ jobs:
           name: trained-model
           path: ./deployed_model
 
+      - name: 📦 Install Dependencies for Deployment
+        run: |
+          echo "📦 Installing FastAPI and runtime dependencies..."
+          python -m pip install --upgrade pip
+          pip install fastapi uvicorn joblib numpy scikit-learn requests
+
       - name: 🧠 Simulate Model Deployment via FastAPI
         run: |
           echo "🚀 Deploying trained model..."
@@ -97,10 +103,11 @@ jobs:
               uvicorn.run(app, host='0.0.0.0', port=8000)
           " > serve_temp.py
 
-          python serve_temp.py &
-          sleep 5
+          echo "Running FastAPI app..."
+          nohup python serve_temp.py > server.log 2>&1 &
+          sleep 10
           echo "🧪 Testing API..."
-          curl -X GET http://127.0.0.1:8000/
+          curl -s http://127.0.0.1:8000/
           pkill -f uvicorn
           echo "✅ Deployment simulation successful."
 
