@@ -26,6 +26,9 @@ mlflow.set_experiment("CI-CD-Training")
 with mlflow.start_run(run_name="CI-CD-Pipeline-Run"):
     mlflow.log_param("model_type", "RandomForestClassifier")
     mlflow.log_metric("accuracy", acc)
+    import joblib
+    joblib.dump(model, "model.pkl")
+    mlflow.log_artifact("model.pkl", artifact_path="model")
     mlflow.sklearn.log_model(model, "model")
 
 print("🏁 MLflow logging complete!")
