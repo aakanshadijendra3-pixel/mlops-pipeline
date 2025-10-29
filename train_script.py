@@ -29,6 +29,6 @@ with mlflow.start_run(run_name="CI-CD-Pipeline-Run"):
     import joblib
     joblib.dump(model, "model.pkl")
     mlflow.log_artifact("model.pkl", artifact_path="model")
-    mlflow.sklearn.log_model(model, "model")
+    
 
 print("🏁 MLflow logging complete!")
