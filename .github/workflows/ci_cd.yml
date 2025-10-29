@@ -44,7 +44,12 @@ jobs:
           sed -i '/get_ipython/d' train_script.py || true
           sed -i '/^!/d' train_script.py || true
           echo "✅ Notebook converted, cleaned, and moved successfully."
-
+      
+      - name: Debug Environment Variables 👇
+        run: |
+          echo "MLflow Tracking URI: $MLFLOW_TRACKING_URI"
+          echo "Username: $MLFLOW_TRACKING_USERNAME"
+          
       - name: 🚀 Train and Log Model with MLflow
         env:
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
